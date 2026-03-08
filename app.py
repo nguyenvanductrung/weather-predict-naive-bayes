@@ -1,4 +1,5 @@
 import streamlit as st
+import base64
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -6,13 +7,15 @@ import plotly.graph_objects as go
 import plotly.express as px
 from PIL import Image
 import io
+import requests
+import json
 
 # Set page configuration
 st.set_page_config(
     page_title="Multimodal Weather Forecasting System",
     page_icon="🌤️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # Custom CSS for modern styling
@@ -22,112 +25,128 @@ def load_custom_css():
         /* Main styling */
         .main-header {
             text-align: center;
-            padding: 2rem 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 15px;
-            margin-bottom: 2rem;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            padding: 0.4rem 1rem;
+            background: #ffffff;
+            color: #111827;
+            border-radius: 10px;
+            margin-bottom: 0.5rem;
+            border: 1px solid #e5e7eb;
         }
         
         .metric-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 1.5rem;
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            color: white;
-            margin-bottom: 1rem;
-            transition: transform 0.3s ease;
+            background: #ffffff;
+            padding: 0.6rem 0.9rem;
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+            color: #111827;
+            margin-bottom: 0.4rem;
         }
-        
-        .metric-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+
+        .summary-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+
+        .summary-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .summary-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem 0.75rem;
+            font-size: 0.8rem;
+            opacity: 0.85;
+        }
+
+        .summary-icon {
+            width: 64px;
+            height: auto;
+            opacity: 0.9;
         }
         
         .prediction-card {
-            background: #1e1e1e;
-            padding: 2rem;
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            border: 1px solid #333;
-            margin-bottom: 2rem;
-        }
-        
-        .chat-container {
-            background: #2a2a2a;
-            border-radius: 15px;
-            padding: 1.5rem;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            border: 1px solid #333;
+            background: #ffffff;
+            padding: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+            border: 1px solid #e5e7eb;
+            margin-bottom: 1rem;
+            color: #111827;
         }
         
         /* Sidebar styling */
         .sidebar-content {
-            background: #1a1a1a;
-            padding: 1rem;
+            background: #ffffff;
+            padding: 0.75rem;
             border-radius: 10px;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
+            border: 1px solid #e5e7eb;
         }
         
         .nav-item {
-            padding: 0.8rem 1rem;
-            margin: 0.5rem 0;
+            padding: 0.6rem 0.8rem;
+            margin: 0.35rem 0;
             border-radius: 8px;
             transition: all 0.3s ease;
             cursor: pointer;
         }
         
         .nav-item:hover {
-            background: #333;
+            background: #f3f4f6;
             transform: translateX(5px);
         }
         
         .nav-item.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #dbeafe;
         }
         
         /* Chart containers */
         .chart-container {
-            background: #1e1e1e;
-            padding: 1.5rem;
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            border: 1px solid #333;
-            margin-bottom: 2rem;
+            background: #ffffff;
+            padding: 0.6rem 0.75rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid #e5e7eb;
+            margin-bottom: 0.5rem;
+            color: #111827;
         }
         
         /* Upload area styling */
         .upload-area {
-            background: #2a2a2a;
-            border: 2px dashed #667eea;
+            background: #ffffff;
+            border: 2px dashed #93c5fd;
             border-radius: 10px;
-            padding: 2rem;
+            padding: 1rem;
             text-align: center;
-            margin: 1rem 0;
+            margin: 0.6rem 0;
             transition: all 0.3s ease;
+            color: #111827;
         }
         
         .upload-area:hover {
-            border-color: #764ba2;
-            background: #333;
+            border-color: #3b82f6;
+            background: #f9fafb;
         }
         
         /* Button styling */
         .stButton > button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #3b82f6;
             color: white;
             border: none;
-            padding: 0.8rem 2rem;
+            padding: 0.6rem 1.5rem;
             border-radius: 8px;
-            font-weight: bold;
+            font-weight: 600;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
         }
         
         .stButton > button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            box-shadow: 0 6px 18px rgba(59, 130, 246, 0.35);
         }
         
         /* Hide streamlit default elements */
@@ -147,27 +166,35 @@ def load_custom_css():
             visibility: hidden;
         }
         
-        /* Chat message styling */
-        .user-message {
-            background: #667eea;
-            color: white;
-            padding: 1rem;
-            border-radius: 15px;
-            margin: 0.5rem 0;
-            max-width: 80%;
-            margin-left: auto;
+        .stMarkdown h3 {
+            margin: 0.35rem 0 0.4rem 0;
+            font-size: 1.05rem;
         }
-        
-        .assistant-message {
-            background: #333;
-            color: white;
-            padding: 1rem;
-            border-radius: 15px;
-            margin: 0.5rem 0;
-            max-width: 80%;
+
+        .stMarkdown h4 {
+            margin: 0.25rem 0 0.3rem 0;
+        }
+
+        /* App background */
+        .stApp {
+            background: #f8fafc;
+        }
+
+        section[data-testid="stSidebar"] {
+            background: #f8fafc;
         }
     </style>
     """, unsafe_allow_html=True)
+
+def load_local_svg_data_uri(path):
+    try:
+        with open(path, "r", encoding="utf-8") as svg_file:
+            svg_content = svg_file.read()
+    except FileNotFoundError:
+        return None
+
+    svg_base64 = base64.b64encode(svg_content.encode("utf-8")).decode("utf-8")
+    return f"data:image/svg+xml;base64,{svg_base64}"
 
 # Initialize session state for chat
 if 'messages' not in st.session_state:
@@ -175,6 +202,37 @@ if 'messages' not in st.session_state:
 
 if 'current_page' not in st.session_state:
     st.session_state.current_page = "Dashboard"
+
+# API Configuration
+API_BASE_URL = "http://127.0.0.1:8000"
+
+# API Functions
+def get_weather_prediction():
+    """Get weather prediction from API"""
+    try:
+        response = requests.get(f"{API_BASE_URL}/predict")
+        if response.status_code == 200:
+            return response.json()
+        else:
+            st.error("Không thể kết nối đến API server")
+            return None
+    except requests.exceptions.RequestException as e:
+        st.error(f"Lỗi kết nối API: {e}")
+        return None
+
+def chat_with_api(message):
+    """Send message to chat API"""
+    try:
+        response = requests.post(
+            f"{API_BASE_URL}/chat",
+            json={"message": message}
+        )
+        if response.status_code == 200:
+            return response.json()["reply"]
+        else:
+            return "Xin lỗi, có lỗi xảy ra khi xử lý yêu cầu của bạn."
+    except requests.exceptions.RequestException as e:
+        return f"Không thể kết nối đến chatbot API: {e}"
 
 # Load custom CSS
 load_custom_css()
@@ -185,7 +243,7 @@ with st.sidebar:
     st.markdown("""
     <div class="sidebar-content" style="text-align: center;">
         <h1 style="font-size: 2.5rem; margin: 0;">🌤️</h1>
-        <h3 style="margin: 0.5rem 0; color: #667eea;">Weather AI</h3>
+        <h3 style="margin: 0.5rem 0; color: #3b82f6;">Weather AI</h3>
     </div>
     """, unsafe_allow_html=True)
     
@@ -204,183 +262,169 @@ with st.sidebar:
     if st.button("🤖 Model Information", key="nav_model", use_container_width=True):
         st.session_state.current_page = "Model Information"
     
-    # Settings section
-    st.markdown("### ⚙️ Settings")
-    
-    forecast_horizon = st.selectbox(
-        "Forecast Horizon",
-        ["1 hour", "6 hours", "24 hours"],
-        index=1
-    )
-    
-    data_modality = st.selectbox(
-        "Data Modality",
-        ["Satellite Images", "Weather Sensors", "Historical Data", "All Modalities"],
-        index=3
-    )
 
 # Main header
 st.markdown("""
 <div class="main-header">
-    <h1 style="margin: 0; font-size: 2.5rem;">🌤️ Multimodal Weather Forecasting System</h1>
-    <h2 style="margin: 0.5rem 0; font-weight: 300;">Ho Chi Minh City</h2>
-    <p style="margin: 0; opacity: 0.9;">Advanced AI-powered weather prediction platform</p>
+    <p style="margin: 0; font-size: 1.1rem; font-weight: 600; color: #111827;">
+        🌤️ Multimodal Weather Forecasting System &nbsp;·&nbsp; <span style="font-weight: 400; opacity: 0.75;">Ho Chi Minh City</span>
+    </p>
 </div>
 """, unsafe_allow_html=True)
 
 # Main content based on selected page
 if st.session_state.current_page == "Dashboard":
-    # Current Weather Section
-    st.markdown("### 🌡️ Current Weather")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.markdown("""
-        <div class="metric-card">
-            <h4 style="margin: 0; font-size: 0.9rem; opacity: 0.8;">Temperature</h4>
-            <h2 style="margin: 0.5rem 0;">28°C</h2>
-            <p style="margin: 0; font-size: 0.8rem; opacity: 0.7;">Feels like 32°C</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div class="metric-card">
-            <h4 style="margin: 0; font-size: 0.9rem; opacity: 0.8;">Humidity</h4>
-            <h2 style="margin: 0.5rem 0;">75%</h2>
-            <p style="margin: 0; font-size: 0.8rem; opacity: 0.7;">Moderate</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown("""
-        <div class="metric-card">
-            <h4 style="margin: 0; font-size: 0.9rem; opacity: 0.8;">Wind Speed</h4>
-            <h2 style="margin: 0.5rem 0;">12 km/h</h2>
-            <p style="margin: 0; font-size: 0.8rem; opacity: 0.7;">Northeast</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown("""
-        <div class="metric-card">
-            <h4 style="margin: 0; font-size: 0.9rem; opacity: 0.8;">Rain Probability</h4>
-            <h2 style="margin: 0.5rem 0;">45%</h2>
-            <p style="margin: 0; font-size: 0.8rem; opacity: 0.7;">Moderate chance</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Forecast Visualization
-    st.markdown("### 📈 Forecast Visualization")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.subheader("Temperature Forecast")
-        
-        # Generate sample temperature data
+    st.markdown("#### 🌡️ Current Weather")
+
+    weather_data = get_weather_prediction()
+    summary_icon = load_local_svg_data_uri("assets/summary.svg")
+    summary_icon_html = (
+        f'<img src="{summary_icon}" class="summary-icon" alt="Summary icon"/>'
+        if summary_icon
+        else ""
+    )
+
+    col_left, col_right = st.columns([1, 2.5])
+
+    # Compute shared rain values used by both card and chart
+    if weather_data:
+        wind_speed = weather_data.get('wind_speed', 12)
+        precipitation = weather_data.get('precipitation', 0)
+        # Rain probability: derive from precipitation (mm) — cap at 95%
+        rain_prob_now = min(95, int(precipitation * 8)) if precipitation > 0 else 20
+    else:
+        wind_speed = 12
+        rain_prob_now = 45
+
+    with col_left:
+        if weather_data:
+            st.markdown(f"""
+            <div class="metric-card summary-card">
+                <div class="summary-text">
+                    <div style="font-size: 0.78rem; opacity: 0.7; margin-bottom: 0.2rem;">Summary · {weather_data.get('date', '')}</div>
+                    <div style="font-size: 2rem; font-weight: 700; line-height: 1.1;">{weather_data['temperature']}°C</div>
+                    <div style="font-size: 0.8rem; opacity: 0.8; margin-top: 0.3rem;">{weather_data['status']}</div>
+                    <div class="summary-meta" style="margin-top: 0.4rem;">
+                        <span>💧 {weather_data['humidity']}%</span>
+                        <span>💨 {wind_speed} km/h</span>
+                        <span>🌧️ {rain_prob_now}%</span>
+                    </div>
+                </div>
+                {summary_icon_html}
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.warning("Không thể tải dữ liệu thời tiết từ API.")
+            st.markdown(f"""
+            <div class="metric-card summary-card">
+                <div class="summary-text">
+                    <div style="font-size: 0.78rem; opacity: 0.7; margin-bottom: 0.2rem;">Summary</div>
+                    <div style="font-size: 2rem; font-weight: 700; line-height: 1.1;">28°C</div>
+                    <div style="font-size: 0.8rem; opacity: 0.8; margin-top: 0.3rem;">Stable</div>
+                    <div class="summary-meta" style="margin-top: 0.4rem;">
+                        <span>💧 75%</span>
+                        <span>💨 12 km/h</span>
+                        <span>🌧️ {rain_prob_now}%</span>
+                    </div>
+                </div>
+                {summary_icon_html}
+            </div>
+            """, unsafe_allow_html=True)
+
+    with col_right:
         hours = list(range(25))
-        temps = [28 + np.sin(i/4) * 3 + np.random.normal(0, 0.5) for i in hours]
-        
-        fig_temp = go.Figure()
-        fig_temp.add_trace(go.Scatter(
-            x=hours,
-            y=temps,
-            mode='lines+markers',
-            name='Temperature',
-            line=dict(color='#667eea', width=3),
-            marker=dict(size=6)
-        ))
-        
-        fig_temp.update_layout(
-            title="24-Hour Temperature Forecast",
-            xaxis_title="Hours from now",
-            yaxis_title="Temperature (°C)",
-            template="plotly_dark",
-            height=300,
-            showlegend=False
-        )
-        
-        st.plotly_chart(fig_temp, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.subheader("Rainfall Probability")
-        
-        # Generate sample rainfall probability data
-        rain_prob = [20 + 30 * np.sin(i/6 + 1) + np.random.normal(0, 5) for i in hours]
-        rain_prob = [max(0, min(100, p)) for p in rain_prob]
-        
+        # Seed chart from rain_prob_now so card and chart are consistent
+        rain_prob_series = [
+            max(0, min(100, rain_prob_now + 20 * np.sin(i / 6) + np.random.normal(0, 4)))
+            for i in hours
+        ]
+
         fig_rain = go.Figure()
         fig_rain.add_trace(go.Scatter(
             x=hours,
-            y=rain_prob,
+            y=rain_prob_series,
             mode='lines+markers',
-            name='Rain Probability',
-            line=dict(color='#764ba2', width=3),
-            marker=dict(size=6),
-            fill='tonexty'
-        ))
-        
-        fig_rain.update_layout(
-            title="24-Hour Rainfall Probability",
-            xaxis_title="Hours from now",
-            yaxis_title="Probability (%)",
-            template="plotly_dark",
-            height=300,
+            line=dict(color='#3b82f6', width=2),
+            marker=dict(size=4),
             showlegend=False
+        ))
+
+        fig_rain.update_layout(
+            title=dict(text="Rain Probability (Next 24h)", font=dict(size=13)),
+            xaxis_title="Hours",
+            yaxis_title="Probability (%)",
+            template="plotly_white",
+            height=210,
+            margin=dict(l=20, r=20, t=30, b=30)
         )
-        
+
         st.plotly_chart(fig_rain, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Multimodal Data Section
-    st.markdown("### 🛰️ Multimodal Data")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.subheader("Satellite Image")
-        # Placeholder for satellite image
-        st.image("https://picsum.photos/seed/satellite/400/300.jpg", caption="Latest Satellite Image")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.subheader("Radar Visualization")
-        # Placeholder for radar
-        st.image("https://picsum.photos/seed/radar/400/300.jpg", caption="Weather Radar")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.subheader("Sensor Data")
-        
-        # Sample sensor data table
-        sensor_data = pd.DataFrame({
-            'Sensor': ['Temp-01', 'Hum-01', 'Wind-01', 'Press-01'],
-            'Value': ['28.5°C', '75%', '12 km/h', '1013 hPa'],
-            'Status': ['Normal', 'Normal', 'Normal', 'Normal']
-        })
-        
-        st.dataframe(sensor_data, use_container_width=True, hide_index=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Row 2: 4 metric chips ──────────────────────────────────────────────
+    if weather_data:
+        temp_max  = weather_data.get('temp_max',  round(weather_data['temperature'] + 2, 1))
+        temp_min  = weather_data.get('temp_min',  round(weather_data['temperature'] - 2, 1))
+        pressure  = weather_data.get('pressure',  1013)
+        precip    = weather_data.get('precipitation', 0)
+    else:
+        temp_max, temp_min, pressure, precip = 30, 26, 1013, 0
+
+    mc1, mc2, mc3, mc4 = st.columns(4)
+    mc1.metric("🌡️ Max Temp",    f"{temp_max}°C")
+    mc2.metric("❄️ Min Temp",    f"{temp_min}°C")
+    mc3.metric("🔵 Pressure",    f"{pressure} hPa")
+    mc4.metric("🌧️ Precipitation", f"{precip} mm")
+
+    # ── Row 3: Temperature chart (left) + Advice card (right) ─────────────
+    col_chart, col_advice = st.columns([2, 1])
+
+    with col_chart:
+        base_temp = weather_data['temperature'] if weather_data else 28
+        temp_series = [
+            round(base_temp + 3 * np.sin((i - 6) / 4) + np.random.normal(0, 0.4), 1)
+            for i in range(25)
+        ]
+        fig_temp = go.Figure()
+        fig_temp.add_trace(go.Scatter(
+            x=list(range(25)),
+            y=temp_series,
+            mode='lines+markers',
+            line=dict(color='#f97316', width=2),
+            marker=dict(size=4),
+            showlegend=False
+        ))
+        fig_temp.update_layout(
+            title=dict(text="Temperature Forecast (Next 24h)", font=dict(size=13)),
+            xaxis_title="Hours",
+            yaxis_title="°C",
+            template="plotly_white",
+            height=200,
+            margin=dict(l=20, r=20, t=30, b=30)
+        )
+        st.plotly_chart(fig_temp, use_container_width=True)
+
+    with col_advice:
+        advice_text = weather_data.get('advice', 'Không có khuyến nghị.') if weather_data else 'Không có khuyến nghị.'
+        st.markdown(f"""
+        <div class="metric-card" style="height: 100%; min-height: 160px;">
+            <div style="font-size: 0.78rem; opacity: 0.7; margin-bottom: 0.4rem;">💡 Khuyến nghị hôm nay</div>
+            <div style="font-size: 0.88rem; line-height: 1.6; color: #111827;">{advice_text}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 elif st.session_state.current_page == "Weather Prediction":
     st.markdown("### 🌡️ Weather Prediction")
     
     # Prediction Panel
-    st.markdown('<div class="prediction-card">', unsafe_allow_html=True)
     st.subheader("Upload Data for Prediction")
-    
+
+    # Khai báo trước để tránh NameError khi dùng ngoài columns scope
+    uploaded_satellite = None
+    uploaded_csv = None
+
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown('<div class="upload-area">', unsafe_allow_html=True)
         uploaded_satellite = st.file_uploader(
             "Upload Satellite Image",
             type=['jpg', 'jpeg', 'png', 'tiff'],
@@ -389,11 +433,9 @@ elif st.session_state.current_page == "Weather Prediction":
         
         if uploaded_satellite:
             image = Image.open(uploaded_satellite)
-            st.image(image, caption="Uploaded Satellite Image", use_column_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.image(image, caption="Uploaded Satellite Image", use_container_width=True)
     
     with col2:
-        st.markdown('<div class="upload-area">', unsafe_allow_html=True)
         uploaded_csv = st.file_uploader(
             "Upload Weather Sensor CSV",
             type=['csv'],
@@ -403,7 +445,6 @@ elif st.session_state.current_page == "Weather Prediction":
         if uploaded_csv:
             df = pd.read_csv(uploaded_csv)
             st.dataframe(df.head(), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
     
     # Run Forecast button
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -412,11 +453,8 @@ elif st.session_state.current_page == "Weather Prediction":
             st.success("Forecast simulation started! (UI only - no backend processing)")
             st.info("In a real implementation, this would trigger the ML model to process the uploaded data and generate predictions.")
     
-    st.markdown('</div>', unsafe_allow_html=True)
-    
     # Prediction Results (placeholder)
     if uploaded_satellite or uploaded_csv:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
         st.subheader("📊 Prediction Results")
         
         # Sample prediction results
@@ -428,7 +466,6 @@ elif st.session_state.current_page == "Weather Prediction":
         })
         
         st.dataframe(results_data, use_container_width=True, hide_index=True)
-        st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.current_page == "Data Visualization":
     st.markdown("### 📈 Data Visualization")
@@ -437,7 +474,6 @@ elif st.session_state.current_page == "Data Visualization":
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
         st.subheader("Historical Temperature Trends")
         
         # Generate historical data
@@ -457,15 +493,13 @@ elif st.session_state.current_page == "Data Visualization":
             title="30-Day Temperature History",
             xaxis_title="Date",
             yaxis_title="Temperature (°C)",
-            template="plotly_dark",
+            template="plotly_white",
             height=300
         )
         
         st.plotly_chart(fig_hist, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
         st.subheader("Weather Pattern Analysis")
         
         # Sample weather pattern data
@@ -488,14 +522,12 @@ elif st.session_state.current_page == "Data Visualization":
             }
         )
         
-        fig_pattern.update_layout(template="plotly_dark", height=300)
+        fig_pattern.update_layout(template="plotly_white", height=300)
         st.plotly_chart(fig_pattern, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.current_page == "Model Information":
     st.markdown("### 🤖 Model Information")
     
-    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
     st.subheader("Multimodal Weather Forecasting Model")
     
     st.markdown("""
@@ -517,13 +549,10 @@ elif st.session_state.current_page == "Model Information":
     - **Update Frequency**: Every 15 minutes
     """)
     
-    st.markdown('</div>', unsafe_allow_html=True)
-    
     # Model metrics visualization
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
         st.subheader("Model Accuracy Metrics")
         
         metrics_data = pd.DataFrame({
@@ -542,15 +571,13 @@ elif st.session_state.current_page == "Model Information":
             title="Model Performance by Metric",
             xaxis_title="Weather Parameter",
             yaxis_title="Accuracy (%)",
-            template="plotly_dark",
+            template="plotly_white",
             height=300
         )
         
         st.plotly_chart(fig_metrics, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
         st.subheader("Training Progress")
         
         # Sample training progress data
@@ -570,18 +597,14 @@ elif st.session_state.current_page == "Model Information":
             title="Model Training Loss",
             xaxis_title="Epoch",
             yaxis_title="Loss",
-            template="plotly_dark",
+            template="plotly_white",
             height=300
         )
         
         st.plotly_chart(fig_training, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
 
 # Chat-style Weather Assistant (appears on all pages)
-st.markdown("---")
-st.markdown("### 💬 Weather Assistant")
-
-st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+st.markdown('<div style="border-top: 1px solid #e5e7eb; margin: 0.4rem 0 0.3rem 0;"></div>', unsafe_allow_html=True)
 
 # Display chat messages
 for message in st.session_state.messages:
@@ -590,38 +613,13 @@ for message in st.session_state.messages:
 
 # Chat input
 if prompt := st.chat_input("Ask about weather in Ho Chi Minh City..."):
-    # Add user message to chat history
     st.session_state.messages.append({"role": "user", "content": prompt})
-    
-    # Display user message
     with st.chat_message("user"):
         st.markdown(prompt)
-    
-    # Generate assistant response (simulated)
-    if "tomorrow" in prompt.lower():
-        response = "Based on current weather patterns, tomorrow in Ho Chi Minh City is expected to be partly cloudy with a high of 31°C and a 30% chance of rain in the afternoon."
-    elif "temperature" in prompt.lower():
-        response = "The current temperature in Ho Chi Minh City is 28°C, with a feels-like temperature of 32°C due to humidity."
-    elif "rain" in prompt.lower():
-        response = "There's a 45% chance of rain in the next 6 hours. The highest probability is between 2-4 PM."
-    elif "weekend" in prompt.lower():
-        response = "This weekend looks mostly sunny with temperatures around 30-32°C. Perfect for outdoor activities!"
-    else:
-        response = "I'm here to help with weather information for Ho Chi Minh City. You can ask about temperature, rain chances, forecasts, and weather patterns."
-    
-    # Display assistant response
+    response = chat_with_api(prompt)
     with st.chat_message("assistant"):
         st.markdown(response)
-    
-    # Add assistant response to chat history
     st.session_state.messages.append({"role": "assistant", "content": response})
 
-st.markdown('</div>', unsafe_allow_html=True)
-
 # Footer
-st.markdown("""
-<div style="text-align: center; padding: 2rem 0; color: #666;">
-    <p>Multimodal Weather Forecasting System © 2024 | Powered by AI</p>
-    <p style="font-size: 0.8rem;">Real-time weather predictions for Ho Chi Minh City</p>
-</div>
-""", unsafe_allow_html=True)
+
